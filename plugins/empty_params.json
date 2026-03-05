@@ -1,0 +1,26 @@
+{
+  "type": "VStack",
+  "id": 1000,
+  "properties": {
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Select a plugin to configure",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Divider",
+      "properties": {
+        "opacity": 0,
+        "frame": { "height": 0 },
+        "padding": 0
+      }
+    }
+  ]
+}

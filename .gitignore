@@ -1,0 +1,6 @@
+**/__pycache__
+.DS_Store
+
+# Generated plugin parameter JSON files (created at runtime, cleaned up on exit)
+plugins/*_params.json
+!plugins/empty_params.json

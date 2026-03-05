@@ -1,0 +1,213 @@
+{
+  "type": "NavigationSplitView",
+  "properties": {
+    "style": "balanced",
+    "frame": {
+      "minWidth": 800,
+      "minHeight": 550,
+      "idealWidth": 1000,
+      "idealHeight": 700
+    }
+  },
+  "sidebar": {
+    "type": "VStack",
+    "properties": {
+      "alignment": "leading",
+      "spacing": 10.0,
+      "padding": "default",
+      "navigationSplitViewColumnWidth": {
+        "ideal": 300,
+        "min": 240,
+        "max": 420
+      }
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Pipeline",
+          "font": "headline"
+        }
+      },
+      {
+        "type": "Table",
+        "id": 10,
+        "properties": {
+          "columns": ["#", "Plugin"],
+          "widths": [30, 200],
+          "actionID": "pipeline.selection.changed"
+        }
+      },
+      {
+        "type": "HStack",
+        "properties": {
+          "spacing": 0
+        },
+        "children": [
+          {
+            "type": "Button",
+            "id": 20,
+            "properties": {
+              "systemImage": "plus.circle",
+              "imageScale": "large",
+              "buttonStyle": "plain",
+              "actionID": "pipeline.add",
+              "frame": { "width": 32, "height": 32 }
+            }
+          },
+          {
+            "type": "Button",
+            "id": 21,
+            "properties": {
+              "systemImage": "minus.circle",
+              "imageScale": "large",
+              "buttonStyle": "plain",
+              "actionID": "pipeline.remove",
+              "disabled": true,
+              "frame": { "width": 32, "height": 32 }
+            }
+          },
+          {
+            "type": "Divider",
+            "properties": {
+              "padding": { "leading": 8, "trailing": 8 },
+              "frame": { "height": 16 }
+            }
+          },
+          {
+            "type": "Button",
+            "id": 22,
+            "properties": {
+              "systemImage": "arrow.up",
+              "imageScale": "medium",
+              "buttonStyle": "plain",
+              "actionID": "pipeline.move.up",
+              "disabled": true,
+              "frame": { "width": 32, "height": 32 }
+            }
+          },
+          {
+            "type": "Button",
+            "id": 23,
+            "properties": {
+              "systemImage": "arrow.down",
+              "imageScale": "medium",
+              "buttonStyle": "plain",
+              "actionID": "pipeline.move.down",
+              "disabled": true,
+              "frame": { "width": 32, "height": 32 }
+            }
+          },
+          {
+            "type": "Spacer"
+          },
+          {
+            "type": "Button",
+            "id": 24,
+            "properties": {
+              "systemImage": "square.and.arrow.up",
+              "imageScale": "medium",
+              "buttonStyle": "plain",
+              "actionID": "pipeline.export",
+              "frame": { "width": 32, "height": 32 }
+            }
+          }
+        ]
+      },
+      {
+        "type": "Picker",
+        "id": 30,
+        "properties": {
+          "title": "Add Plugin:",
+          "options": [],
+          "pickerStyle": "menu",
+          "actionID": "plugin.picker.changed"
+        }
+      }
+    ]
+  },
+  "detail": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 8.0,
+      "padding": {
+        "top": 8,
+        "leading": 12,
+        "bottom": 8,
+        "trailing": 12
+      }
+    },
+    "children": [
+      {
+        "type": "GroupBox",
+        "properties": {
+          "title": "Preview"
+        },
+        "children": [
+          {
+            "type": "Image",
+            "id": 50,
+            "properties": {
+              "systemName": "photo",
+              "resizable": true,
+              "scaleMode": "fit",
+              "frame": {
+                "minHeight": 200,
+                "maxWidth": 99999,
+                "maxHeight": 99999
+              }
+            }
+          }
+        ]
+      },
+      {
+        "type": "GroupBox",
+        "id": 60,
+        "properties": {
+          "title": "Parameters",
+          "frame": {
+            "minHeight": 160,
+            "maxHeight": 160,
+            "maxWidth": 99999
+          }
+        },
+        "children": [
+          {
+            "type": "LoadableView",
+            "id": 200,
+            "properties": {
+              "filePath": ""
+            }
+          }
+        ]
+      },
+      {
+        "type": "HStack",
+        "children": [
+          {
+            "type": "Button",
+            "id": 80,
+            "properties": {
+              "title": "Open Image",
+              "actionID": "image.open",
+              "buttonStyle": "bordered"
+            }
+          },
+          {
+            "type": "Spacer"
+          },
+          {
+            "type": "Button",
+            "id": 81,
+            "properties": {
+              "title": "Save Image",
+              "actionID": "image.save",
+              "buttonStyle": "bordered",
+              "disabled": true
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
