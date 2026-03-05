@@ -1,6 +1,6 @@
 # PillowUI
 
-A macOS image transformation pipeline builder powered by [ActionUI](https://github.com/nicetomeetyou1/ActionUI) and [Pillow](https://pillow.readthedocs.io/).
+A macOS image transformation pipeline builder powered by [ActionUI](https://github.com/abra-code/ActionUI) and [Pillow](https://pillow.readthedocs.io/).
 
 Load an image, stack transformation plugins in any order, tweak parameters in real time, and preview the result. When satisfied, export the pipeline as a standalone Python script.
 
