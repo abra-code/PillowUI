@@ -24,15 +24,16 @@ pip3 install Pillow
 
 The `actionui` module is not published as a pip package. You need to build it from the [ActionUI](https://github.com/abra-code/ActionUI) sources.
 
-Clone or download the ActionUI repository, then build the three required static frameworks (ActionUI, ActionUICAdapter, ActionUIAppKitApplication) in Xcode with `BUILD_LIBRARY_FOR_DISTRIBUTION=YES`. Copy the resulting `.framework` bundles into `ActionUIPython/frameworks/`.
-
-Then from the `ActionUIPython` directory:
+Clone or download the ActionUI repository, then run the build script:
 
 ```bash
-pip3 install --no-cache-dir --verbose .
+cd ActionUI/ActionUIPython
+./build_and_install.sh
 ```
 
-See [ActionUIPython/BUILD_GUIDE.md](https://github.com/abra-code/ActionUI/blob/main/ActionUIPython/BUILD_GUIDE.md) for full details.
+This builds the required static frameworks as Release universal (arm64 + x86_64) via xcodebuild and installs the `actionui` Python module with pip.
+
+See [ActionUIPython/BUILD_GUIDE.md](https://github.com/abra-code/ActionUI/blob/main/ActionUIPython/BUILD_GUIDE.md) for manual build steps and details.
 
 ### 3. Run PillowUI
 
