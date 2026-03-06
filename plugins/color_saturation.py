@@ -1,4 +1,4 @@
-PLUGIN_NAME = "Color (Saturation)"
+PLUGIN_NAME = "Color Saturation"
 PLUGIN_DESCRIPTION = "Adjust image color saturation"
 PLUGIN_PARAMS = [
     {"name": "factor", "type": "float", "default": 1.0, "min": 0.0, "max": 3.0, "label": "Saturation Factor"},

@@ -30,8 +30,9 @@ BTN_SAVE_ID = 81
 # --- Application State ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PLUGINS_DIR = os.path.join(SCRIPT_DIR, "plugins")
+ICON_PATH = os.path.join(SCRIPT_DIR, "Pillow.png")
 
-app = actionui.Application(name="PillowUI")
+app = actionui.Application(name="PillowUI", icon=ICON_PATH)
 window = None
 
 # Plugin registry: list of loaded plugin modules
