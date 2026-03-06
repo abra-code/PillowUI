@@ -272,6 +272,9 @@ def show_params_for_step(step_idx):
     json_path = plugin_json_paths.get(plugin_mod, "")
     window.set_string(LOADABLE_PARAMS_ID, json_path)
 
+    # If switching between steps that use the same plugin, the LoadableView
+    # source doesn't change so viewDidLoadActionID won't fire. The controls
+    # are already loaded in that case, so _sync_param_values works directly.
     _sync_param_values(step_idx)
 
 
@@ -484,6 +487,13 @@ def on_pipeline_export(ctx):
 def on_plugin_picker_changed(ctx):
     # Just updates the picker selection state; add happens via "+" button
     pass
+
+
+@app.action("params.view.loaded")
+def on_params_view_loaded(ctx):
+    """Called by LoadableView after the plugin params UI has loaded.
+    Syncs the pipeline step's current param values into the controls."""
+    _sync_param_values(selected_pipeline_idx)
 
 
 # Default action handler for dynamically loaded param controls

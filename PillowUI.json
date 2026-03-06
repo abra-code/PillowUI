@@ -176,7 +176,8 @@
             "type": "LoadableView",
             "id": 200,
             "properties": {
-              "filePath": ""
+              "filePath": "",
+              "viewDidLoadActionID": "params.view.loaded"
             }
           }
         ]
