@@ -46,17 +46,6 @@
         "children": [
           {
             "type": "Button",
-            "id": 20,
-            "properties": {
-              "systemImage": "plus.circle",
-              "imageScale": "large",
-              "buttonStyle": "plain",
-              "actionID": "pipeline.add",
-              "frame": { "width": 32, "height": 32 }
-            }
-          },
-          {
-            "type": "Button",
             "id": 21,
             "properties": {
               "systemImage": "minus.circle",
@@ -115,14 +104,34 @@
         ]
       },
       {
-        "type": "Picker",
-        "id": 30,
+        "type": "HStack",
         "properties": {
-          "title": "Add Plugin:",
-          "options": [],
-          "pickerStyle": "menu",
-          "actionID": "plugin.picker.changed"
-        }
+          "spacing": 4,
+          "alignment": "center"
+        },
+        "children": [
+          {
+            "type": "Picker",
+            "id": 30,
+            "properties": {
+              "title": "Plugin:",
+              "options": [],
+              "pickerStyle": "menu",
+              "controlSize": "small",
+              "actionID": "plugin.picker.changed"
+            }
+          },
+          {
+            "type": "Button",
+            "id": 31,
+            "properties": {
+              "title": "Add",
+              "buttonStyle": "bordered",
+              "controlSize": "small",
+              "actionID": "pipeline.add"
+            }
+          }
+        ]
       }
     ]
   },
