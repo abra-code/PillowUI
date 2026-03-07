@@ -12,12 +12,13 @@ from PIL import Image
 
 # --- View ID Constants ---
 PIPELINE_TABLE_ID = 10
-BTN_ADD_ID = 20
 BTN_REMOVE_ID = 21
 BTN_MOVE_UP_ID = 22
 BTN_MOVE_DOWN_ID = 23
 BTN_EXPORT_ID = 24
+BTN_IMPORT_ID = 25
 PLUGIN_PICKER_ID = 30
+BTN_ADD_ID = 31
 
 PREVIEW_IMAGE_ID = 50
 
@@ -33,21 +34,39 @@ PLUGINS_DIR = os.path.join(SCRIPT_DIR, "plugins")
 ICON_PATH = os.path.join(SCRIPT_DIR, "Pillow.png")
 
 app = actionui.Application(name="PillowUI", icon=ICON_PATH)
-window = None
 
-# Plugin registry: list of loaded plugin modules
+# Plugin registry: list of loaded plugin modules (shared across all windows)
 plugin_registry = []  # [module, ...]
 plugin_names = []     # [name, ...]
 plugin_json_paths = {}  # {module: absolute_path_to_params_json}
 
-# Pipeline: ordered list of steps
-pipeline = []  # [{"plugin": module, "params": {name: value}, "enabled": True}, ...]
 
-# Current state
-source_image = None        # PIL.Image — original loaded image
-processed_image = None     # PIL.Image — after pipeline
-selected_pipeline_idx = -1 # Currently selected pipeline row
-preview_temp_path = None   # Temp file for preview
+# --- Per-Window State ---
+
+class WindowState:
+    """Holds all state for a single PillowUI window."""
+    def __init__(self, window):
+        self.window = window
+        self.pipeline = []  # [{"plugin": module, "params": {}, "enabled": True}, ...]
+        self.source_image = None
+        self.processed_image = None
+        self.selected_pipeline_idx = -1
+        self.preview_temp_path = None
+
+    def cleanup(self):
+        if self.preview_temp_path and os.path.exists(self.preview_temp_path):
+            try:
+                os.unlink(self.preview_temp_path)
+            except OSError:
+                pass
+
+
+_window_states = {}  # window_uuid -> WindowState
+
+
+def _get_state(ctx):
+    """Look up WindowState for an action context."""
+    return _window_states.get(ctx.window_uuid)
 
 
 # --- Plugin Loader ---
@@ -190,92 +209,81 @@ def generate_all_plugin_json():
 
 # --- Pipeline Execution ---
 
-def execute_pipeline():
+def execute_pipeline(state):
     """Run all enabled pipeline steps on the source image."""
-    global processed_image
-    if source_image is None:
-        processed_image = None
+    if state.source_image is None:
+        state.processed_image = None
         return
-    img = source_image.copy()
-    for step in pipeline:
+    img = state.source_image.copy()
+    for step in state.pipeline:
         if not step["enabled"]:
             continue
         try:
             img = step["plugin"].transform(img, step["params"])
         except Exception as e:
             print(f"Plugin error ({step['plugin'].PLUGIN_NAME}): {e}", file=sys.stderr)
-    processed_image = img
+    state.processed_image = img
 
 
-def update_preview():
+def update_preview(state):
     """Save processed image to temp file and update the Image view."""
-    global preview_temp_path
-    if window is None:
+    if state.processed_image is None:
+        state.window.set_string(PREVIEW_IMAGE_ID, "photo")
         return
-    if processed_image is None:
-        window.set_string(PREVIEW_IMAGE_ID, "photo")
-        return
-    if preview_temp_path is None:
-        fd, preview_temp_path = tempfile.mkstemp(suffix=".png", prefix="pillowui_")
+    if state.preview_temp_path is None:
+        fd, state.preview_temp_path = tempfile.mkstemp(suffix=".png", prefix="pillowui_")
         os.close(fd)
-    processed_image.save(preview_temp_path, "PNG")
-    window.set_string(PREVIEW_IMAGE_ID, preview_temp_path)
+    state.processed_image.save(state.preview_temp_path, "PNG")
+    state.window.set_string(PREVIEW_IMAGE_ID, state.preview_temp_path)
 
 
-def refresh_pipeline():
+def refresh_pipeline(state):
     """Re-execute pipeline and update preview."""
-    execute_pipeline()
-    update_preview()
+    execute_pipeline(state)
+    update_preview(state)
 
 
 # --- Table Sync ---
 
-def sync_table():
+def sync_table(state):
     """Sync the pipeline table rows with the pipeline state."""
-    if window is None:
-        return
     rows = []
-    for i, step in enumerate(pipeline):
+    for i, step in enumerate(state.pipeline):
         rows.append([
             str(i + 1),
             step["plugin"].PLUGIN_NAME,
         ])
-    window.set_rows(PIPELINE_TABLE_ID, rows)
+    state.window.set_rows(PIPELINE_TABLE_ID, rows)
 
 
-def update_toolbar_buttons():
+def update_toolbar_buttons(state):
     """Enable/disable toolbar buttons based on selection state."""
-    if window is None:
-        return
-    has_selection = 0 <= selected_pipeline_idx < len(pipeline)
-    window.set_property(BTN_REMOVE_ID, "disabled", not has_selection)
-    window.set_property(BTN_MOVE_UP_ID, "disabled", not has_selection or selected_pipeline_idx <= 0)
-    window.set_property(BTN_MOVE_DOWN_ID, "disabled", not has_selection or selected_pipeline_idx >= len(pipeline) - 1)
+    has_selection = 0 <= state.selected_pipeline_idx < len(state.pipeline)
+    state.window.set_property(BTN_REMOVE_ID, "disabled", not has_selection)
+    state.window.set_property(BTN_MOVE_UP_ID, "disabled", not has_selection or state.selected_pipeline_idx <= 0)
+    state.window.set_property(BTN_MOVE_DOWN_ID, "disabled", not has_selection or state.selected_pipeline_idx >= len(state.pipeline) - 1)
 
 
 # --- Parameter UI ---
 
-def show_params_for_step(step_idx):
+def show_params_for_step(state, step_idx):
     """Update the parameter panel to show controls for the selected pipeline step."""
-    if window is None:
+    if step_idx < 0 or step_idx >= len(state.pipeline):
+        state.window.set_property(PARAM_GROUP_ID, "title", "Parameters")
+        state.window.set_string(LOADABLE_PARAMS_ID, os.path.join(PLUGINS_DIR, "empty_params.json"))
         return
 
-    if step_idx < 0 or step_idx >= len(pipeline):
-        window.set_property(PARAM_GROUP_ID, "title", "Parameters")
-        window.set_string(LOADABLE_PARAMS_ID, os.path.join(PLUGINS_DIR, "empty_params.json"))
-        return
-
-    step = pipeline[step_idx]
+    step = state.pipeline[step_idx]
     plugin_mod = step["plugin"]
-    window.set_property(PARAM_GROUP_ID, "title", f"{plugin_mod.PLUGIN_NAME} Parameters")
+    state.window.set_property(PARAM_GROUP_ID, "title", f"{plugin_mod.PLUGIN_NAME} Parameters")
 
     json_path = plugin_json_paths.get(plugin_mod, "")
-    window.set_string(LOADABLE_PARAMS_ID, json_path)
+    state.window.set_string(LOADABLE_PARAMS_ID, json_path)
 
     # If switching between steps that use the same plugin, the LoadableView
     # source doesn't change so viewDidLoadActionID won't fire. The controls
     # are already loaded in that case, so _sync_param_values works directly.
-    _sync_param_values(step_idx)
+    _sync_param_values(state, step_idx)
 
 
 def _format_param_value(value, pdef):
@@ -288,26 +296,26 @@ def _format_param_value(value, pdef):
     return f"{value:.2f}"
 
 
-def _sync_param_values(step_idx):
+def _sync_param_values(state, step_idx):
     """Set current param values on the dynamically loaded controls."""
-    if window is None or step_idx < 0 or step_idx >= len(pipeline):
+    if step_idx < 0 or step_idx >= len(state.pipeline):
         return
-    step = pipeline[step_idx]
+    step = state.pipeline[step_idx]
     params_def = getattr(step["plugin"], "PLUGIN_PARAMS", [])
     control_id = 1001
     for pdef in params_def:
         value = step["params"].get(pdef["name"], pdef["default"])
         if pdef["type"] == "float":
-            window.set_double(control_id, value)
-            window.set_string(control_id + 1000, _format_param_value(value, pdef))
+            state.window.set_double(control_id, value)
+            state.window.set_string(control_id + 1000, _format_param_value(value, pdef))
         elif pdef["type"] == "bool":
-            window.set_bool(control_id, value)
+            state.window.set_bool(control_id, value)
         control_id += 1
 
 
-# --- Export ---
+# --- Export / Import ---
 
-def export_pipeline_script():
+def export_pipeline_script(state):
     """Generate a standalone Python script from the current pipeline."""
     import inspect
     import textwrap
@@ -315,7 +323,7 @@ def export_pipeline_script():
     # Collect pipeline data and unique transform functions
     steps = []
     transforms = {}  # plugin_name -> source code of transform()
-    for step in pipeline:
+    for step in state.pipeline:
         if not step["enabled"]:
             continue
         plugin = step["plugin"]
@@ -432,9 +440,8 @@ if __name__ == "__main__":
     return script
 
 
-def import_pipeline_script(path):
-    """Import a previously exported pipeline script and restore its steps."""
-    global pipeline
+def import_pipeline_into(state, path):
+    """Import a previously exported pipeline script into a window state."""
     spec = importlib.util.spec_from_file_location("_imported_pipeline", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -464,15 +471,70 @@ def import_pipeline_script(path):
             "enabled": True,
         })
 
-    pipeline = new_pipeline
+    state.pipeline = new_pipeline
     return True
+
+
+# --- Window Creation ---
+
+def _init_window(window):
+    """Set up a newly created window with plugin picker and empty params."""
+    state = WindowState(window)
+    _window_states[window.uuid] = state
+
+    window.set_string(LOADABLE_PARAMS_ID, os.path.join(PLUGINS_DIR, "empty_params.json"))
+
+    if plugin_names:
+        options = [{"title": name, "tag": str(i + 1)} for i, name in enumerate(plugin_names)]
+        window.set_property(PLUGIN_PICKER_ID, "options", options)
+        window.set_string(PLUGIN_PICKER_ID, "1")
+
+    return state
+
+
+def create_window(title="PillowUI", pipeline_path=None, image_path=None):
+    """Create a new PillowUI window, optionally with a pipeline and/or image."""
+    json_path = os.path.join(SCRIPT_DIR, "PillowUI.json")
+    window = app.load_and_present_window(json_path, title=title)
+    # _init_window is called from window_will_present before we get here,
+    # so state already exists
+    state = _window_states.get(window.uuid)
+    if state is None:
+        state = _init_window(window)
+
+    if pipeline_path:
+        path = os.path.abspath(pipeline_path)
+        if os.path.isfile(path):
+            if import_pipeline_into(state, path):
+                state.selected_pipeline_idx = 0 if state.pipeline else -1
+                sync_table(state)
+                show_params_for_step(state, state.selected_pipeline_idx)
+                update_toolbar_buttons(state)
+        else:
+            print(f"Pipeline not found: {path}", file=sys.stderr)
+
+    if image_path:
+        path = os.path.abspath(image_path)
+        if os.path.isfile(path):
+            try:
+                state.source_image = Image.open(path)
+                state.window.set_property(BTN_SAVE_ID, "disabled", False)
+                refresh_pipeline(state)
+            except Exception as e:
+                print(f"Failed to open image: {e}", file=sys.stderr)
+        else:
+            print(f"Image not found: {path}", file=sys.stderr)
+
+    return state
 
 
 # --- Action Handlers ---
 
 @app.action("image.open")
 def on_image_open(ctx):
-    global source_image
+    state = _get_state(ctx)
+    if state is None:
+        return
     paths = app.open_panel(
         title="Open Image",
         prompt="Open",
@@ -481,17 +543,18 @@ def on_image_open(ctx):
     if not paths:
         return
     try:
-        source_image = Image.open(paths[0])
+        state.source_image = Image.open(paths[0])
     except Exception as e:
         print(f"Failed to open image: {e}", file=sys.stderr)
         return
-    window.set_property(BTN_SAVE_ID, "disabled", False)
-    refresh_pipeline()
+    state.window.set_property(BTN_SAVE_ID, "disabled", False)
+    refresh_pipeline(state)
 
 
 @app.action("image.save")
 def on_image_save(ctx):
-    if processed_image is None:
+    state = _get_state(ctx)
+    if state is None or state.processed_image is None:
         return
     path = app.save_panel(
         title="Save Image",
@@ -502,18 +565,18 @@ def on_image_save(ctx):
     if not path:
         return
     try:
-        processed_image.save(path)
+        state.processed_image.save(path)
     except Exception as e:
         print(f"Failed to save image: {e}", file=sys.stderr)
 
 
 @app.action("pipeline.add")
 def on_pipeline_add(ctx):
-    global selected_pipeline_idx
-    if not plugin_registry:
+    state = _get_state(ctx)
+    if state is None or not plugin_registry:
         return
     # Get selected plugin from picker
-    tag = window.get_string(PLUGIN_PICKER_ID)
+    tag = state.window.get_string(PLUGIN_PICKER_ID)
     idx = 0
     if tag is not None:
         try:
@@ -529,73 +592,82 @@ def on_pipeline_add(ctx):
         "params": get_default_params(plugin_mod),
         "enabled": True,
     }
-    pipeline.append(step)
-    sync_table()
-    update_toolbar_buttons()
-    refresh_pipeline()
+    state.pipeline.append(step)
+    sync_table(state)
+    update_toolbar_buttons(state)
+    refresh_pipeline(state)
 
 
 @app.action("pipeline.remove")
 def on_pipeline_remove(ctx):
-    global selected_pipeline_idx
-    if selected_pipeline_idx < 0 or selected_pipeline_idx >= len(pipeline):
+    state = _get_state(ctx)
+    if state is None:
         return
-    pipeline.pop(selected_pipeline_idx)
-    if selected_pipeline_idx >= len(pipeline):
-        selected_pipeline_idx = len(pipeline) - 1
-    sync_table()
-    show_params_for_step(selected_pipeline_idx)
-    update_toolbar_buttons()
-    refresh_pipeline()
+    if state.selected_pipeline_idx < 0 or state.selected_pipeline_idx >= len(state.pipeline):
+        return
+    state.pipeline.pop(state.selected_pipeline_idx)
+    if state.selected_pipeline_idx >= len(state.pipeline):
+        state.selected_pipeline_idx = len(state.pipeline) - 1
+    sync_table(state)
+    show_params_for_step(state, state.selected_pipeline_idx)
+    update_toolbar_buttons(state)
+    refresh_pipeline(state)
 
 
 @app.action("pipeline.move.up")
 def on_pipeline_move_up(ctx):
-    global selected_pipeline_idx
-    idx = selected_pipeline_idx
-    if idx <= 0 or idx >= len(pipeline):
+    state = _get_state(ctx)
+    if state is None:
         return
-    pipeline[idx], pipeline[idx - 1] = pipeline[idx - 1], pipeline[idx]
-    selected_pipeline_idx = idx - 1
-    sync_table()
-    update_toolbar_buttons()
-    refresh_pipeline()
+    idx = state.selected_pipeline_idx
+    if idx <= 0 or idx >= len(state.pipeline):
+        return
+    state.pipeline[idx], state.pipeline[idx - 1] = state.pipeline[idx - 1], state.pipeline[idx]
+    state.selected_pipeline_idx = idx - 1
+    sync_table(state)
+    update_toolbar_buttons(state)
+    refresh_pipeline(state)
 
 
 @app.action("pipeline.move.down")
 def on_pipeline_move_down(ctx):
-    global selected_pipeline_idx
-    idx = selected_pipeline_idx
-    if idx < 0 or idx >= len(pipeline) - 1:
+    state = _get_state(ctx)
+    if state is None:
         return
-    pipeline[idx], pipeline[idx + 1] = pipeline[idx + 1], pipeline[idx]
-    selected_pipeline_idx = idx + 1
-    sync_table()
-    update_toolbar_buttons()
-    refresh_pipeline()
+    idx = state.selected_pipeline_idx
+    if idx < 0 or idx >= len(state.pipeline) - 1:
+        return
+    state.pipeline[idx], state.pipeline[idx + 1] = state.pipeline[idx + 1], state.pipeline[idx]
+    state.selected_pipeline_idx = idx + 1
+    sync_table(state)
+    update_toolbar_buttons(state)
+    refresh_pipeline(state)
 
 
 @app.action("pipeline.selection.changed")
 def on_pipeline_selection_changed(ctx):
-    global selected_pipeline_idx
-    selected_row = window.get_value(PIPELINE_TABLE_ID)
+    state = _get_state(ctx)
+    if state is None:
+        return
+    selected_row = state.window.get_value(PIPELINE_TABLE_ID)
     if selected_row is None or len(selected_row) == 0:
-        selected_pipeline_idx = -1
+        state.selected_pipeline_idx = -1
     else:
         # First column is the row number
         try:
-            selected_pipeline_idx = int(selected_row[0]) - 1
+            state.selected_pipeline_idx = int(selected_row[0]) - 1
         except (ValueError, TypeError, IndexError):
-            selected_pipeline_idx = -1
-    show_params_for_step(selected_pipeline_idx)
-    update_toolbar_buttons()
+            state.selected_pipeline_idx = -1
+    show_params_for_step(state, state.selected_pipeline_idx)
+    update_toolbar_buttons(state)
 
 
 @app.action("pipeline.export")
 def on_pipeline_export(ctx):
-    if not pipeline:
+    state = _get_state(ctx)
+    if state is None or not state.pipeline:
         return
-    script = export_pipeline_script()
+    script = export_pipeline_script(state)
     path = app.save_panel(
         title="Export Pipeline Script",
         prompt="Export",
@@ -614,7 +686,18 @@ def on_pipeline_export(ctx):
 
 @app.action("pipeline.import")
 def on_pipeline_import(ctx):
-    global selected_pipeline_idx
+    state = _get_state(ctx)
+    if state is None:
+        return
+    if state.pipeline:
+        result = app.alert(
+            title="Replace Pipeline?",
+            message="The current pipeline will be replaced by the imported one.",
+            style="warning",
+            buttons=["Replace", "Cancel"],
+        )
+        if result != "Replace":
+            return
     paths = app.open_panel(
         title="Import Pipeline Script",
         prompt="Import",
@@ -623,12 +706,12 @@ def on_pipeline_import(ctx):
     if not paths:
         return
     try:
-        if import_pipeline_script(paths[0]):
-            selected_pipeline_idx = 0 if pipeline else -1
-            sync_table()
-            show_params_for_step(selected_pipeline_idx)
-            update_toolbar_buttons()
-            refresh_pipeline()
+        if import_pipeline_into(state, paths[0]):
+            state.selected_pipeline_idx = 0 if state.pipeline else -1
+            sync_table(state)
+            show_params_for_step(state, state.selected_pipeline_idx)
+            update_toolbar_buttons(state)
+            refresh_pipeline(state)
     except Exception as e:
         print(f"Failed to import: {e}", file=sys.stderr)
 
@@ -643,13 +726,20 @@ def on_plugin_picker_changed(ctx):
 def on_params_view_loaded(ctx):
     """Called by LoadableView after the plugin params UI has loaded.
     Syncs the pipeline step's current param values into the controls."""
-    _sync_param_values(selected_pipeline_idx)
+    state = _get_state(ctx)
+    if state is None:
+        return
+    _sync_param_values(state, state.selected_pipeline_idx)
 
 
 # Default action handler for dynamically loaded param controls
 def on_dynamic_param_changed(ctx):
     action = ctx.action_id
     if not action.startswith("param."):
+        return
+
+    state = _get_state(ctx)
+    if state is None:
         return
 
     # Determine if this is a text field change or a slider/toggle change
@@ -661,9 +751,9 @@ def on_dynamic_param_changed(ctx):
     else:
         return
 
-    if selected_pipeline_idx < 0 or selected_pipeline_idx >= len(pipeline):
+    if state.selected_pipeline_idx < 0 or state.selected_pipeline_idx >= len(state.pipeline):
         return
-    step = pipeline[selected_pipeline_idx]
+    step = state.pipeline[state.selected_pipeline_idx]
     params_def = getattr(step["plugin"], "PLUGIN_PARAMS", [])
 
     # Find the control_id for this param to compute slider/text field IDs
@@ -675,7 +765,7 @@ def on_dynamic_param_changed(ctx):
                 text_field_id = control_id + 1000
                 if is_text:
                     # Text field changed — parse value, update slider and param
-                    text_val = window.get_string(text_field_id)
+                    text_val = state.window.get_string(text_field_id)
                     if text_val is not None:
                         try:
                             value = float(text_val)
@@ -683,54 +773,233 @@ def on_dynamic_param_changed(ctx):
                             pmax = pdef.get("max", 1.0)
                             value = max(pmin, min(pmax, value))
                             step["params"][param_name] = value
-                            window.set_double(slider_id, value)
+                            state.window.set_double(slider_id, value)
                         except ValueError:
                             pass
                 else:
                     # Slider changed — update text field and param
-                    value = window.get_double(slider_id)
+                    value = state.window.get_double(slider_id)
                     if value is not None:
                         step["params"][param_name] = value
-                        window.set_string(text_field_id, _format_param_value(value, pdef))
+                        state.window.set_string(text_field_id, _format_param_value(value, pdef))
             elif pdef["type"] == "bool" and not is_text:
-                value = window.get_bool(ctx.view_id)
+                value = state.window.get_bool(ctx.view_id)
                 if value is not None:
                     step["params"][param_name] = value
-            refresh_pipeline()
+            refresh_pipeline(state)
             return
         control_id += 1
 
 
+# --- Menu Action Handlers ---
+
+@app.action("file.new")
+def on_file_new(ctx):
+    create_window()
+
+
+@app.action("file.open_image")
+def on_file_open_image(ctx):
+    paths = app.open_panel(
+        title="Open Image",
+        prompt="Open",
+        allowed_types=["public.image"],
+    )
+    if not paths:
+        return
+    state = _get_state(ctx)
+    if state is not None:
+        # Open in the front window
+        try:
+            state.source_image = Image.open(paths[0])
+        except Exception as e:
+            print(f"Failed to open image: {e}", file=sys.stderr)
+            return
+        state.window.set_property(BTN_SAVE_ID, "disabled", False)
+        refresh_pipeline(state)
+    else:
+        create_window(image_path=paths[0])
+
+
+@app.action("file.import_pipeline")
+def on_file_import_pipeline(ctx):
+    state = _get_state(ctx)
+    if state is not None and state.pipeline:
+        result = app.alert(
+            title="Replace Pipeline?",
+            message="The current pipeline will be replaced by the imported one.",
+            style="warning",
+            buttons=["Replace", "Cancel"],
+        )
+        if result != "Replace":
+            return
+    paths = app.open_panel(
+        title="Import Pipeline Script",
+        prompt="Import",
+        allowed_types=["py"],
+    )
+    if not paths:
+        return
+    if state is not None:
+        try:
+            if import_pipeline_into(state, paths[0]):
+                state.selected_pipeline_idx = 0 if state.pipeline else -1
+                sync_table(state)
+                show_params_for_step(state, state.selected_pipeline_idx)
+                update_toolbar_buttons(state)
+                refresh_pipeline(state)
+        except Exception as e:
+            print(f"Failed to import: {e}", file=sys.stderr)
+    else:
+        create_window(pipeline_path=paths[0])
+
+
+@app.action("file.save_image")
+def on_file_save_image(ctx):
+    state = _get_state(ctx)
+    if state is None or state.processed_image is None:
+        return
+    path = app.save_panel(
+        title="Save Image",
+        prompt="Save",
+        filename="output.png",
+        allowed_types=["png", "jpg", "jpeg", "tiff", "bmp"],
+    )
+    if not path:
+        return
+    try:
+        state.processed_image.save(path)
+    except Exception as e:
+        print(f"Failed to save image: {e}", file=sys.stderr)
+
+
+@app.action("file.export_pipeline")
+def on_file_export_pipeline(ctx):
+    state = _get_state(ctx)
+    if state is None or not state.pipeline:
+        return
+    script = export_pipeline_script(state)
+    path = app.save_panel(
+        title="Export Pipeline Script",
+        prompt="Export",
+        filename="pillow_pipeline.py",
+        allowed_types=["py"],
+    )
+    if not path:
+        return
+    try:
+        with open(path, "w") as f:
+            f.write(script)
+        os.chmod(path, 0o755)
+    except Exception as e:
+        print(f"Failed to export: {e}", file=sys.stderr)
+
+
 # --- Lifecycle ---
+
+@app.window_will_present
+def on_window_present(window):
+    if window.uuid not in _window_states:
+        _init_window(window)
+
+
+@app.window_will_close
+def on_window_close(window):
+    state = _window_states.pop(window.uuid, None)
+    if state:
+        state.cleanup()
+
 
 @app.did_finish_launching
 def on_launch():
-    global window
     load_plugins()
     generate_all_plugin_json()
     app.set_default_handler(on_dynamic_param_changed)
-    json_path = os.path.join(SCRIPT_DIR, "PillowUI.json")
-    window = app.load_and_present_window(json_path, title="PillowUI")
 
-    # Load empty params view initially
-    window.set_string(LOADABLE_PARAMS_ID, os.path.join(PLUGINS_DIR, "empty_params.json"))
+    app.load_menu_bar(json.dumps([
+        {
+            "type": "CommandGroup",
+            "properties": {
+                "placement": "replacing",
+                "placementTarget": "newItem",
+            },
+            "children": [
+                {
+                    "type": "Button",
+                    "properties": {
+                        "title": "New",
+                        "actionID": "file.new",
+                        "keyboardShortcut": {"key": "n", "modifiers": ["command"]},
+                    },
+                },
+                {
+                    "type": "Button",
+                    "properties": {
+                        "title": "Open Image...",
+                        "actionID": "file.open_image",
+                        "keyboardShortcut": {"key": "o", "modifiers": ["command"]},
+                    },
+                },
+                {
+                    "type": "Button",
+                    "properties": {
+                        "title": "Import Pipeline...",
+                        "actionID": "file.import_pipeline",
+                        "keyboardShortcut": {"key": "i", "modifiers": ["command"]},
+                    },
+                },
+                {"type": "Divider"},
+            ],
+        },
+        {
+            "type": "CommandGroup",
+            "properties": {
+                "placement": "after",
+                "placementTarget": "saveItem",
+            },
+            "children": [
+                {
+                    "type": "Button",
+                    "properties": {
+                        "title": "Save Image...",
+                        "actionID": "file.save_image",
+                        "keyboardShortcut": {"key": "s", "modifiers": ["command"]},
+                    },
+                },
+            ],
+        },
+        {
+            "type": "CommandGroup",
+            "properties": {
+                "placement": "replacing",
+                "placementTarget": "importExport",
+            },
+            "children": [
+                {
+                    "type": "Button",
+                    "properties": {
+                        "title": "Export Pipeline...",
+                        "actionID": "file.export_pipeline",
+                        "keyboardShortcut": {"key": "e", "modifiers": ["command"]},
+                    },
+                },
+            ],
+        },
+    ]))
 
-    # Populate plugin picker
-    if plugin_names:
-        options = [{"title": name, "tag": str(i + 1)} for i, name in enumerate(plugin_names)]
-        window.set_property(PLUGIN_PICKER_ID, "options", options)
-        window.set_string(PLUGIN_PICKER_ID, "1")
+    # Create the initial window (with optional CLI args applied later)
+    create_window(
+        pipeline_path=getattr(_startup_args, "pipeline", None),
+        image_path=getattr(_startup_args, "image", None),
+    )
 
 
 # --- Cleanup ---
 
 @app.will_terminate
 def on_terminate():
-    if preview_temp_path and os.path.exists(preview_temp_path):
-        try:
-            os.unlink(preview_temp_path)
-        except OSError:
-            pass
+    for state in _window_states.values():
+        state.cleanup()
     for path in plugin_json_paths.values():
         try:
             if os.path.exists(path):
@@ -741,45 +1010,13 @@ def on_terminate():
 
 # --- Entry Point ---
 
+_startup_args = None
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="PillowUI — Image Transformation Pipeline Builder")
     parser.add_argument("--pipeline", "-p", help="Import a pipeline script (.py) at startup")
     parser.add_argument("--image", "-i", help="Open an image file at startup")
-    args = parser.parse_args()
-
-    # Store for deferred application after window loads
-    _startup_args = args
-
-    _original_on_launch = on_launch
-
-    @app.did_finish_launching
-    def on_launch_with_args():
-        _original_on_launch()
-
-        if _startup_args.pipeline:
-            global selected_pipeline_idx
-            path = os.path.abspath(_startup_args.pipeline)
-            if os.path.isfile(path):
-                if import_pipeline_script(path):
-                    selected_pipeline_idx = 0 if pipeline else -1
-                    sync_table()
-                    show_params_for_step(selected_pipeline_idx)
-                    update_toolbar_buttons()
-            else:
-                print(f"Pipeline not found: {path}", file=sys.stderr)
-
-        if _startup_args.image:
-            global source_image
-            path = os.path.abspath(_startup_args.image)
-            if os.path.isfile(path):
-                try:
-                    source_image = Image.open(path)
-                    window.set_property(BTN_SAVE_ID, "disabled", False)
-                    refresh_pipeline()
-                except Exception as e:
-                    print(f"Failed to open image: {e}", file=sys.stderr)
-            else:
-                print(f"Image not found: {path}", file=sys.stderr)
+    _startup_args = parser.parse_args()
 
     app.run()
