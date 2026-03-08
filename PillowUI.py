@@ -281,6 +281,30 @@ def generate_plugin_params_json(plugin_mod):
                 },
             })
             control_id += 1
+        elif pdef["type"] == "string":
+            children.append({
+                "type": "HStack",
+                "properties": {},
+                "children": [
+                    {
+                        "type": "Text",
+                        "properties": {
+                            "text": pdef.get("label", pdef["name"]),
+                            "frame": {"width": 140},
+                        },
+                    },
+                    {
+                        "type": "TextField",
+                        "id": control_id,
+                        "properties": {
+                            "text": str(pdef.get("default", "")),
+                            "placeholder": pdef.get("placeholder", ""),
+                            "valueChangeActionID": f"param.{pdef['name']}.text.changed",
+                        },
+                    },
+                ],
+            })
+            control_id += 1
 
     return {
         "type": "VStack",
@@ -371,6 +395,7 @@ def show_params_for_step(state, step_idx):
     if step_idx < 0 or step_idx >= len(state.pipeline):
         state.window.set_property(PARAM_GROUP_ID, "title", "Parameters")
         state.window.set_string(LOADABLE_PARAMS_ID, os.path.join(PLUGINS_DIR, "empty_params.json"))
+        state._current_params_plugin = None
         return
 
     step = state.pipeline[step_idx]
@@ -378,12 +403,16 @@ def show_params_for_step(state, step_idx):
     state.window.set_property(PARAM_GROUP_ID, "title", f"{plugin_mod.PLUGIN_NAME} Parameters")
 
     json_path = plugin_json_paths.get(plugin_mod, "")
-    state.window.set_string(LOADABLE_PARAMS_ID, json_path)
 
-    # If switching between steps that use the same plugin, the LoadableView
-    # source doesn't change so viewDidLoadActionID won't fire. The controls
-    # are already loaded in that case, so _sync_param_values works directly.
-    _sync_param_values(state, step_idx)
+    # Only reload the LoadableView if the plugin actually changed.
+    # Re-setting the same path triggers an async reload that destroys
+    # controls before _sync_param_values can update them.
+    if getattr(state, '_current_params_plugin', None) is not plugin_mod:
+        state.window.set_string(LOADABLE_PARAMS_ID, json_path)
+        state._current_params_plugin = plugin_mod
+    else:
+        # Same plugin already loaded – just sync the values directly.
+        _sync_param_values(state, step_idx)
 
 
 def _format_param_value(value, pdef):
@@ -410,6 +439,8 @@ def _sync_param_values(state, step_idx):
             state.window.set_string(control_id + 1000, _format_param_value(value, pdef))
         elif pdef["type"] == "bool":
             state.window.set_bool(control_id, value)
+        elif pdef["type"] == "string":
+            state.window.set_string(control_id, str(value))
         control_id += 1
 
 
@@ -963,6 +994,10 @@ def on_dynamic_param_changed(ctx):
                 value = state.window.get_bool(ctx.view_id)
                 if value is not None:
                     step["params"][param_name] = value
+            elif pdef["type"] == "string" and is_text:
+                text_val = state.window.get_string(control_id)
+                if text_val is not None:
+                    step["params"][param_name] = text_val
             refresh_pipeline(state)
             return
         control_id += 1

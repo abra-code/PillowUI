@@ -1,5 +1,7 @@
 # PillowUI
 
+![PillowUI Icon](Pillow.png)
+
 A macOS image transformation pipeline builder powered by [ActionUI](https://github.com/abra-code/ActionUI) and [Pillow](https://pillow.readthedocs.io/).
 
 Load an image, stack transformation plugins in any order, tweak parameters in real time, and preview the result. When satisfied, export the pipeline as a standalone Python script.
@@ -41,9 +43,59 @@ See [ActionUIPython/BUILD_GUIDE.md](https://github.com/abra-code/ActionUI/blob/m
 python3 PillowUI.py
 ```
 
+## Usage
+
+### Pipeline
+
+The pipeline is an ordered list of steps. Each step references a plugin module with its own parameter values. The full pipeline executes sequentially on the source image — each step's output feeds the next step's input.
+
+### Export & Import
+
+**Export** generates a standalone `.py` script that reproduces the current pipeline using only Pillow — no PillowUI or ActionUI dependency required. The script includes all transformation steps with their parameter values baked in, plus output format and quality settings.
+
+**Import** lets you load a previously exported `.py` pipeline back into PillowUI. All steps, parameter values, output format, and quality settings are restored, so you can review, tweak, and re-export the pipeline.
+
 ## Included Plugins
 
-Brightness, Contrast, Gaussian Blur, Grayscale, Resize, Rotate, Sharpness, Color (Saturation), Flip, Invert, Auto Contrast, Equalize, Posterize, Solarize, Emboss, Find Edges, Unsharp Mask, Crop.
+- **Auto Contrast** — Normalize image contrast automatically
+- **Border** — Add a solid-color border around the image
+- **Box Blur** — Apply box blur (average of neighboring pixels)
+- **Brightness** — Adjust image brightness
+- **Color Saturation** — Adjust image color saturation
+- **Color Temperature** — Shift color temperature warm or cool via per-channel LUTs
+- **Colorize** — Map grayscale values to a two-color gradient (tinting effect)
+- **Contour** — Trace contours to create a line-drawing effect
+- **Contrast** — Adjust image contrast
+- **Crop** — Crop image by percentage from each edge
+- **Detail** — Enhance fine detail in the image
+- **Edge Enhance** — Subtly enhance edges while preserving the image
+- **Emboss** — Apply 3D embossed effect
+- **Equalize** — Histogram equalization for uniform tonal distribution
+- **Find Edges** — Detect and highlight edges in the image
+- **Flip** — Mirror image horizontally or vertically
+- **Gaussian Blur** — Apply Gaussian blur
+- **Grayscale** — Convert image to grayscale
+- **Invert** — Negate all pixel values
+- **Max Filter** — Pick the brightest pixel in each neighborhood (dilate bright features)
+- **Median Filter** — Reduce noise by replacing each pixel with the median of its neighbors
+- **Min Filter** — Pick the darkest pixel in each neighborhood (erode bright features)
+- **Mode Filter** — Replace each pixel with the most frequent value in its neighborhood
+- **Pad** — Resize image to fit within a target size, padding the remainder
+- **Posterize** — Reduce color depth by limiting bits per channel
+- **Quantize** — Reduce to a limited number of colors (palette effect)
+- **Resize** — Resize image by percentage
+- **Rotate** — Rotate image by angle
+- **Self Blend** — Blend the image with itself using Multiply or Screen
+- **Sharpen (Filter)** — Convolution-based sharpening (different from enhancement sharpness)
+- **Sharpness** — Adjust image sharpness
+- **Smooth** — Apply light smoothing to reduce noise
+- **Solarize** — Invert pixels above a brightness threshold
+- **Spread** — Randomly displace pixels for a frosted-glass effect
+- **Text Watermark** — Overlay text on the image
+- **Threshold** — Convert to binary black & white using a brightness cutoff
+- **Unsharp Mask** — Professional sharpening with radius, strength, and threshold
+
+Each plugin can be added to the pipeline multiple times with different settings (e.g., two watermarks at different positions).
 
 ## Technical Design
 
@@ -57,10 +109,6 @@ Plugins live in the `plugins/` directory. Each plugin is a Python module exporti
 - `export_code(params)` / `export_imports()` — for standalone script generation
 
 Plugins are discovered at launch by scanning `plugins/` for `.py` files (excluding `_`-prefixed). The app loads them via `importlib` and registers any module that has both `PLUGIN_NAME` and `transform`.
-
-### Pipeline
-
-The pipeline is an ordered list of steps. Each step references a plugin module with its own parameter values. The full pipeline executes sequentially on the source image — each step's output feeds the next step's input.
 
 ### Dynamically Loaded Plugin Settings
 

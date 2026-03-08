@@ -174,8 +174,8 @@
         "properties": {
           "title": "Parameters",
           "frame": {
-            "minHeight": 180,
-            "maxHeight": 180,
+            "minHeight": 225,
+            "maxHeight": 225,
             "maxWidth": 99999
           }
         },
