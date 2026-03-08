@@ -174,18 +174,24 @@
         "properties": {
           "title": "Parameters",
           "frame": {
-            "minHeight": 160,
-            "maxHeight": 160,
+            "minHeight": 180,
+            "maxHeight": 180,
             "maxWidth": 99999
           }
         },
         "children": [
           {
-            "type": "LoadableView",
-            "id": 200,
+            "type": "ScrollView",
             "properties": {
-              "filePath": "",
-              "viewDidLoadActionID": "params.view.loaded"
+              "axis": "vertical"
+            },
+            "content": {
+              "type": "LoadableView",
+              "id": 200,
+              "properties": {
+                "filePath": "",
+                "viewDidLoadActionID": "params.view.loaded"
+              }
             }
           }
         ]
@@ -242,7 +248,6 @@
                     "properties": {
                       "value": 85,
                       "range": { "min": 1, "max": 100 },
-                      "step": 1,
                       "valueChangeActionID": "output.quality.changed"
                     }
                   },

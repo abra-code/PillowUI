@@ -108,9 +108,11 @@ def load_plugins():
             spec.loader.exec_module(mod)
             if hasattr(mod, "PLUGIN_NAME") and hasattr(mod, "transform"):
                 plugin_registry.append(mod)
-                plugin_names.append(mod.PLUGIN_NAME)
         except Exception as e:
             print(f"Failed to load plugin {fname}: {e}", file=sys.stderr)
+    # Sort by display name so the picker menu is alphabetical
+    plugin_registry.sort(key=lambda m: m.PLUGIN_NAME)
+    plugin_names = [m.PLUGIN_NAME for m in plugin_registry]
 
 
 def get_default_params(plugin_mod):
@@ -203,9 +205,18 @@ def _resolve_output(state):
 def generate_plugin_params_json(plugin_mod):
     """Generate an ActionUI JSON dict for a plugin's PLUGIN_PARAMS."""
     params_def = getattr(plugin_mod, "PLUGIN_PARAMS", [])
+    description = getattr(plugin_mod, "PLUGIN_DESCRIPTION", "")
     # Invisible divider forces VStack to expand to full parent width.
     # Placed last with zero padding so it doesn't shift visible content.
     width_filler = {"type": "Divider", "properties": {"opacity": 0, "frame": {"height": 0}, "padding": 0}}
+
+    desc_text = {
+        "type": "Text",
+        "properties": {
+            "text": description or "No parameters to configure",
+            "foregroundStyle": "secondary",
+        },
+    }
 
     if not params_def:
         return {
@@ -216,19 +227,10 @@ def generate_plugin_params_json(plugin_mod):
                 "padding": "default",
                 "alignment": "leading",
             },
-            "children": [
-                {
-                    "type": "Text",
-                    "properties": {
-                        "text": "No parameters to configure",
-                        "foregroundStyle": "secondary",
-                    },
-                },
-                width_filler,
-            ],
+            "children": [desc_text, width_filler],
         }
 
-    children = []
+    children = [desc_text]
     control_id = 1001
     for pdef in params_def:
         if pdef["type"] == "float":
