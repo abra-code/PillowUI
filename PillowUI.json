@@ -46,25 +46,6 @@
         "children": [
           {
             "type": "Button",
-            "id": 21,
-            "properties": {
-              "systemImage": "minus.circle",
-              "imageScale": "large",
-              "buttonStyle": "plain",
-              "actionID": "pipeline.remove",
-              "disabled": true,
-              "frame": { "width": 32, "height": 32 }
-            }
-          },
-          {
-            "type": "Divider",
-            "properties": {
-              "padding": { "leading": 8, "trailing": 8 },
-              "frame": { "height": 16 }
-            }
-          },
-          {
-            "type": "Button",
             "id": 22,
             "properties": {
               "systemImage": "arrow.up",
@@ -123,12 +104,30 @@
           },
           {
             "type": "Button",
-            "id": 31,
             "properties": {
               "title": "Add",
               "buttonStyle": "bordered",
               "controlSize": "small",
               "actionID": "pipeline.add"
+            }
+          },
+          {
+            "type": "Divider",
+            "properties": {
+              "padding": { "leading": 8, "trailing": 8 },
+              "frame": { "height": 16 }
+            }
+          },
+          {
+            "type": "Button",
+            "id": 21,
+            "properties": {
+              "systemImage": "minus.circle",
+              "imageScale": "large",
+              "buttonStyle": "plain",
+              "actionID": "pipeline.remove",
+              "disabled": true,
+              "frame": { "width": 32, "height": 32 }
             }
           }
         ]
@@ -188,6 +187,77 @@
               "filePath": "",
               "viewDidLoadActionID": "params.view.loaded"
             }
+          }
+        ]
+      },
+      {
+        "type": "GroupBox",
+        "properties": {
+          "title": "Output",
+          "frame": { "maxWidth": 99999 }
+        },
+        "children": [
+          {
+            "type": "VStack",
+            "properties": {
+              "spacing": 8,
+              "alignment": "leading"
+            },
+            "children": [
+              {
+                "type": "HStack",
+                "properties": { "spacing": 8 },
+                "children": [
+                  {
+                    "type": "Picker",
+                    "id": 90,
+                    "properties": {
+                      "title": "Format:",
+                      "options": [],
+                      "pickerStyle": "menu",
+                      "actionID": "output.format.changed"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "HStack",
+                "id": 95,
+                "properties": {
+                  "spacing": 8,
+                  "hidden": true
+                },
+                "children": [
+                  {
+                    "type": "Text",
+                    "id": 91,
+                    "properties": {
+                      "text": "Quality:",
+                      "frame": { "width": 60 }
+                    }
+                  },
+                  {
+                    "type": "Slider",
+                    "id": 92,
+                    "properties": {
+                      "value": 85,
+                      "range": { "min": 1, "max": 100 },
+                      "step": 1,
+                      "valueChangeActionID": "output.quality.changed"
+                    }
+                  },
+                  {
+                    "type": "TextField",
+                    "id": 93,
+                    "properties": {
+                      "text": "85",
+                      "frame": { "width": 50 },
+                      "valueChangeActionID": "output.quality.text.changed"
+                    }
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
