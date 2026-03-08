@@ -1,7 +1,7 @@
 PLUGIN_NAME = "Solarize"
 PLUGIN_DESCRIPTION = "Invert pixels above a brightness threshold"
 PLUGIN_PARAMS = [
-    {"name": "threshold", "type": "float", "default": 128.0, "min": 0.0, "max": 255.0, "label": "Threshold", "step": 1.0},
+    {"name": "threshold", "type": "float", "default": 128.0, "min": 0.0, "max": 255.0, "label": "Threshold"},
 ]
 
 
