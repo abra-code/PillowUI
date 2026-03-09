@@ -4,7 +4,7 @@
     "style": "balanced",
     "frame": {
       "minWidth": 800,
-      "minHeight": 550,
+      "minHeight": 600,
       "idealWidth": 1000,
       "idealHeight": 700
     }

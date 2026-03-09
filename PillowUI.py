@@ -3,6 +3,7 @@
 
 import json
 import os
+import pprint
 import sys
 import importlib.util
 import tempfile
@@ -463,8 +464,9 @@ def export_pipeline_script(state):
         if name not in transforms:
             transforms[name] = textwrap.dedent(inspect.getsource(plugin.transform))
 
-    # Build PIPELINE literal
-    pipeline_repr = json.dumps(steps, indent=2)
+    # Build PIPELINE literal (pprint produces valid Python, unlike json.dumps
+    # which emits JSON true/false/null instead of Python True/False/None)
+    pipeline_repr = pprint.pformat(steps, indent=2, width=60)
 
     # Build transform functions, each renamed to _transform_<sanitized_name>
     func_defs = []
