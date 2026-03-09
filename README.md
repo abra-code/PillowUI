@@ -45,6 +45,8 @@ python3 PillowUI.py
 
 ## Usage
 
+![PillowUI Window](Images/PillowUI-window.png)
+
 ### Pipeline
 
 The pipeline is an ordered list of steps. Each step references a plugin module with its own parameter values. The full pipeline executes sequentially on the source image — each step's output feeds the next step's input.
