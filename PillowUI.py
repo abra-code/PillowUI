@@ -264,7 +264,6 @@ def generate_plugin_params_json(plugin_mod):
                         "id": text_field_id,
                         "properties": {
                             "text": _format_param_value(pdef["default"], pdef),
-                            "placeholder": "",
                             "frame": {"width": 60},
                             "valueChangeActionID": f"param.{pdef['name']}.text.changed",
                         },
@@ -299,7 +298,6 @@ def generate_plugin_params_json(plugin_mod):
                         "id": control_id,
                         "properties": {
                             "text": str(pdef.get("default", "")),
-                            "placeholder": pdef.get("placeholder", ""),
                             "valueChangeActionID": f"param.{pdef['name']}.text.changed",
                         },
                     },
