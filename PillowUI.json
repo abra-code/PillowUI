@@ -256,6 +256,7 @@
                     "id": 93,
                     "properties": {
                       "text": "85",
+                      "format": "integer",
                       "frame": { "width": 50 },
                       "valueChangeActionID": "output.quality.text.changed"
                     }

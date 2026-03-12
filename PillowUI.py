@@ -264,6 +264,7 @@ def generate_plugin_params_json(plugin_mod):
                         "id": text_field_id,
                         "properties": {
                             "text": _format_param_value(pdef["default"], pdef),
+                            "format": "decimal",
                             "frame": {"width": 60},
                             "valueChangeActionID": f"param.{pdef['name']}.text.changed",
                         },
