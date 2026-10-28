@@ -158,7 +158,7 @@
             "properties": {
               "systemName": "photo",
               "resizable": true,
-              "scaleMode": "fit",
+              "contentMode": "fit",
               "frame": {
                 "minHeight": 200,
                 "maxWidth": 99999,
