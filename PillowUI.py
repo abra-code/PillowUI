@@ -278,7 +278,8 @@ def generate_plugin_params_json(plugin_mod):
                 "id": control_id,
                 "properties": {
                     "title": pdef.get("label", pdef["name"]),
-                    "valueChangeActionID": f"param.{pdef['name']}.changed",
+                    # A Toggle reports a change through actionID; it has no valueChangeActionID.
+                    "actionID": f"param.{pdef['name']}.changed",
                 },
             })
             control_id += 1
